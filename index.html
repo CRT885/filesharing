@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRT885 File Sharing</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial, sans-serif;
+    background:#121212;
+    color:white;
+    padding:20px;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+#search{
+    width:100%;
+    padding:12px;
+    font-size:16px;
+    border:none;
+    border-radius:8px;
+    margin-bottom:20px;
+}
+
+.folder{
+    margin-left:20px;
+    border-left:1px solid #444;
+    padding-left:15px;
+}
+
+.folder-title{
+    color:#4fc3f7;
+    margin:10px 0;
+    font-weight:bold;
+}
+
+.file{
+    margin:5px 0;
+}
+
+.file a{
+    color:#81d4fa;
+    text-decoration:none;
+}
+
+.file a:hover{
+    text-decoration:underline;
+}
+
+.download{
+    margin-left:10px;
+    color:#66bb6a !important;
+}
+
+#status{
+    margin-bottom:20px;
+}
+
+#stats{
+    margin-bottom:20px;
+    color:#aaa;
+}
+
+</style>
+</head>
+<body>
+
+<h1>📁 CRT885 File Sharing</h1>
+
+<input
+type="text"
+id="search"
+placeholder="Search files..."
+>
+
+<div id="status">Loading...</div>
+<div id="stats"></div>
+
+<div id="tree"></div>
+
+<script>
+
+const USER = "CRT885";
+const REPO = "filesharing";
+
+const tree = document.getElementById("tree");
+const statusBox = document.getElementById("status");
+const statsBox = document.getElementById("stats");
+const searchBox = document.getElementById("search");
+
+let totalFiles = 0;
+
+async function getContents(path="") {
+
+    const url =
+    `https://api.github.com/repos/${USER}/${REPO}/contents/${path}`;
+
+    const response = await fetch(url);
+
+    if(!response.ok){
+        throw new Error("GitHub API Error");
+    }
+
+    return await response.json();
+}
+
+async function buildTree(path,parent){
+
+    const items = await getContents(path);
+
+    items.sort((a,b)=>{
+
+        if(a.type===b.type)
+            return a.name.localeCompare(b.name);
+
+        return a.type==="dir" ? -1 : 1;
+
+    });
+
+    for(const item of items){
+
+        if(item.type==="dir"){
+
+            const folder =
+            document.createElement("div");
+
+            folder.className="folder";
+
+            const title =
+            document.createElement("div");
+
+            title.className="folder-title";
+            title.textContent="📂 "+item.name;
+
+            folder.appendChild(title);
+
+            parent.appendChild(folder);
+
+            await buildTree(
+                item.path,
+                folder
+            );
+
+        }
+        else{
+
+            totalFiles++;
+
+            const file =
+            document.createElement("div");
+
+            file.className="file";
+
+            file.innerHTML=
+            `
+            📄
+            <a href="${item.download_url}"
+               target="_blank">
+               ${item.path}
+            </a>
+
+            <a class="download"
+               href="${item.download_url}"
+               download>
+               [Download]
+            </a>
+            `;
+
+            parent.appendChild(file);
+
+        }
+
+    }
+
+}
+
+function enableSearch(){
+
+    searchBox.addEventListener(
+        "input",
+        function(){
+
+            const q =
+            this.value.toLowerCase();
+
+            document
+            .querySelectorAll(".file")
+            .forEach(file=>{
+
+                if(
+                    file.textContent
+                    .toLowerCase()
+                    .includes(q)
+                ){
+                    file.style.display="";
+                }
+                else{
+                    file.style.display="none";
+                }
+
+            });
+
+        }
+    );
+
+}
+
+async function start(){
+
+    try{
+
+        statusBox.innerHTML =
+        "Scanning repository...";
+
+        await buildTree("",tree);
+
+        statusBox.innerHTML =
+        "✅ Repository loaded";
+
+        statsBox.innerHTML =
+        "Files found: " + totalFiles;
+
+        enableSearch();
+
+    }
+    catch(error){
+
+        console.error(error);
+
+        statusBox.innerHTML =
+        "❌ Failed to load repository";
+
+    }
+
+}
+
+start();
+
+</script>
+
+</body>
+</html>
